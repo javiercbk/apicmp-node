@@ -15,7 +15,6 @@ const options = program.opts();
   const logger = winston.createLogger({
     level: options.loglevel,
     format: winston.format.combine(
-      winston.format.splat(),
       winston.format.simple()
     ),
     transports: [

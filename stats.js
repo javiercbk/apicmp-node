@@ -49,31 +49,23 @@ class Stats {
     }
 
     printStats() {
-        this._logger.log({
-            level: 'info',
-            message: `Total Processed: ${this._totalProcessed}`,
-        });
-        this._logger.log({
-            level: 'info',
-            message: `Success: ${this._successCount}`,
-        });
-        this._logger.log({
-            level: 'info',
-            message: `Failures: ${this._failureCount}`,
-        });
-        this._logger.log({
-            level: 'info',
-            message: `failures: ${this._failureRows.join(',')}`,
-        });
+        let statsStr = "\n\n\n==========~  STATS  ~==========\n\n";
+        statsStr += `Total Processed: ${this._totalProcessed}\n`;
+        statsStr += `Total Processed: ${this._totalProcessed}\n`;
+        statsStr += `Success: ${this._successCount}\n`
+        statsStr += `Failures: ${this._failureCount}\n`
+        statsStr += `Rows failed: ${this._failureRows.join(',')}\n`
         const failureKeys = Object.keys(this._failuresTypes);
         if (failureKeys.length) {
             failureKeys.forEach((k) => {
-                this._logger.log({
-                    level: 'info',
-                    message: `failures "${k}": ${this._failuresTypes[k].join(',')}`,
-                });
+                statsStr += `failures "${k}": ${this._failuresTypes[k].join(',')}\n`;
             });
         }
+        statsStr += "\n===============================\n\n\n";
+        this._logger.log({
+            level: 'info',
+            message: statsStr,
+        });
     }
 
     _normalizeType(type) {
