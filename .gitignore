@@ -118,3 +118,6 @@ dist
 # vscode
 
 .vscode/
+
+# plugins dir
+plugins/*

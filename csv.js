@@ -2,6 +2,8 @@ const Promise = require('bluebird');
 const csv = require("csv-parser");
 const fs = require("fs");
 
+const { fileExists } = require('./file-utils');
+
 const rowFilterFactory = function (filters) {
     return function (row, index) {
         return filters.findIndex(filterFunc => !filterFunc(row, index)) === -1;
@@ -78,19 +80,5 @@ const readCSV = async function (path, rowsToFilter) {
     });
     return rows;
 };
-
-const fileExists = function (path) {
-    return new Promise((resolve, reject) => {
-        fs.stat(path, function (err) {
-            if (!err) {
-                resolve(true);
-            } else if (err.code === 'ENOENT') {
-                resolve(false);
-            } else {
-                reject(err);
-            }
-        });
-    });
-}
 
 module.exports = { readCSV };

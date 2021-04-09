@@ -35,5 +35,6 @@ program
     .option("--match <matchType>", "exact|superset (default is exact)", "exact")
     .option("--threads <threads>", "the amounts of threds to use (default is 4)", parseNumberFactory(4), 4)
     .option("--loglevel <logLevel>", "log level to use info|debug", "info")
+    .option("--plugin <plugin>", "the file path to a .js that exports a cmp function and a ignore function")
 
 module.exports = program

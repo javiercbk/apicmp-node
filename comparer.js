@@ -1,3 +1,8 @@
+const { fileExists } = require('./file-utils');
+
+const CMP_FILE_NOT_EXISTS = new Error('compare function file does not exist');
+const CMP_FILE_PARSE_ERR = new Error('unable to parse compare function file');
+
 class Comparer {
     constructor(logger, stats, diffFactory) {
         this._logger = logger;
@@ -26,12 +31,18 @@ class Comparer {
 class Diff {
     constructor(options = {}) {
         this._diffs = [];
+        this._logger = options.logger;
         this._isSuperset = options.superset;
-        this._comparePathFunc = options.comparePathFunc;
-        if (!this._comparePathFunc) {
-            this._compareFunc = function (beforeVal, afterVal) {
-                return beforeVal === afterVal;
-            };
+        this._compareFunc = function (beforeVal, afterVal) {
+            return beforeVal === afterVal;
+        };
+        if (options.ignore) {
+            this._ignorePathFunc = options.ignore;
+        } else {
+            this._ignorePathFunc = () => false;
+        }
+        if (options.cmp) {
+            this._compareFunc = options.cmp;
         }
     }
 
@@ -40,58 +51,109 @@ class Diff {
         return this._diffs;
     }
 
-    _comparePath(before, after, currentPath) {
-        const _self = this;
-        const beforeKeys = Object.keys(before);
-        beforeKeys.forEach((k) => {
-            _self._compareKey(before, after, k, currentPath);
-        });
-        if (!this._isSuperset && after) {
-            const afterKeys = Object.keys(after);
-            afterKeys.forEach((k) => {
-                _self._compareKey(before, after, k, currentPath);
-            });
+    _comparePath(beforeVal, afterVal, path) {
+        if (this._ignorePathFunc(path)) {
+            this._logger.log({
+                level: 'debug',
+                message: `ignoring path: ${path}`
+            })
+            return;
         }
-    }
-
-    _compareKey(before, after, k, currentPath) {
-        if ((before && !after) || (!before && after)) {
-            this._diffs.push({ path: currentPath, before: before, after: after });
-        } else {
-            const beforeVal = before[k];
-            const afterVal = after[k];
-            if (typeof beforeVal === 'object') {
-                const nextPath = currentPath === "" ? k : `${currentPath}.${k}`;
-                if (Array.isArray(beforeVal)) {
-                    this._compareArray(beforeVal, afterVal, nextPath);
-                } else {
-                    this._comparePath(beforeVal, afterVal, nextPath);
-                }
+        if (typeof beforeVal === 'object') {
+            if (Array.isArray(beforeVal)) {
+                this._compareArray(beforeVal, afterVal, path);
             } else {
-                // if it is not an object, then compare with the after value
-                if (!this._compareFunc(beforeVal, afterVal, currentPath)) {
-                    this._diffs.push({ path: currentPath, before: beforeVal, after: afterVal });
-                }
+                this._compareObject(beforeVal, afterVal, path);
+            }
+        } else {
+            // if it is not an object, then compare with the after value
+            if (!this._compareFunc(beforeVal, afterVal, path)) {
+                this._diffs.push({ path: path, before: beforeVal, after: afterVal });
             }
         }
     }
 
-    _compareArray(before, after, currentPath) {
+    _compareObject(before, after, path) {
+        const _self = this;
+        if (this._ignorePathFunc(path)) {
+            this._logger.log({
+                level: 'debug',
+                message: `ignoring path: ${path}`
+            })
+            return;
+        }
+        const beforeKeys = Object.keys(before);
+        beforeKeys.forEach((k) => {
+            _self._compareKey(before, after, k, path);
+        });
+        if (!this._isSuperset && after) {
+            const afterKeys = Object.keys(after);
+            afterKeys.forEach((k) => {
+                _self._compareKey(before, after, k, path);
+            });
+        }
+    }
+
+    _compareKey(before, after, k, path) {
+        if (this._ignorePathFunc(path)) {
+            this._logger.log({
+                level: 'debug',
+                message: `ignoring path: ${path}`
+            })
+            return;
+        }
         if ((before && !after) || (!before && after)) {
-            this._diffs.push({ path: currentPath, before: before, after: after });
+            this._diffs.push({ path: path, before: before, after: after });
+        } else {
+            const beforeVal = before[k];
+            const afterVal = after[k];
+            const nextPath = path === "" ? k : `${path}.${k}`;
+            this._comparePath(beforeVal, afterVal, nextPath)
+        }
+    }
+
+    _compareArray(before, after, path) {
+        if (this._ignorePathFunc(path)) {
+            this._logger.log({
+                level: 'debug',
+                message: `ignoring path: ${path}`
+            })
+            return;
+        }
+        if ((before && !after) || (!before && after)) {
+            this._diffs.push({ path: path, before: before, after: after });
         } else if (before.length !== after.length) {
-            this._diffs.push({ path: `${currentPath}.length`, before: before, after: after });
+            this._diffs.push({ path: `${path}.length`, before: before, after: after });
         } else {
             const _self = this;
             before.forEach((beforeVal, index) => {
                 const afterVal = after[index];
-                _self._comparePath(beforeVal, afterVal, `${currentPath}[${index}]`);
+                _self._comparePath(beforeVal, afterVal, `${path}[${index}]`);
             });
         }
     }
 }
 
+const readPlugin = async function (path) {
+    const exists = await fileExists(path);
+    if (!exists) {
+        throw CMP_FILE_NOT_EXISTS;
+    }
+    // WARNING:this can easily be exploited
+    const plugin = require(path);
+    if (plugin.cmp && typeof plugin.cmp !== "function") {
+        throw CMP_FILE_PARSE_ERR;
+    }
+    if (plugin.ignore && typeof plugin.ignore !== "function") {
+        throw CMP_FILE_PARSE_ERR;
+    }
+    return plugin;
+}
+
 module.exports = {
     Comparer,
     Diff,
+    readPlugin,
+    CMP_FILE_NOT_EXISTS,
+    CMP_FILE_PARSE_ERR,
 }

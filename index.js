@@ -4,7 +4,7 @@ const winston = require("winston");
 const { readCSV } = require('./csv');
 const { Requestor, ABORT_ERR } = require('./requestor');
 const { Stats } = require('./stats');
-const { Comparer, Diff } = require('./comparer');
+const { Comparer, Diff, readPlugin } = require('./comparer');
 
 const program = require('./program');
 
@@ -23,9 +23,16 @@ const options = program.opts();
   });
   const stats = new Stats(logger);
   const isSuperset = options.match === "superset";
-  const diffFactory = () => new Diff({
+  const diffOpts = {
     superset: isSuperset,
-  })
+    logger: logger,
+  };
+  if (options.plugin) {
+    const plugin = await readPlugin(options.plugin);
+    diffOpts.cmp = plugin.cmp;
+    diffOpts.ignore = plugin.ignore;
+  }
+  const diffFactory = () => new Diff(diffOpts)
   const comparer = new Comparer(logger, stats, diffFactory);
   const onResponse = function (row, before, after) {
     comparer.compare(row, before, after);

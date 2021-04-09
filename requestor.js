@@ -94,8 +94,15 @@ class Requestor {
                     throw err;
                 }
             }
+            if (!response) {
+                throw new Error(`could not connect to server: ${opt.url}`)
+            }
             if (response.status < 200 && response.status >= 300 && this._retryStatusCodes.indexOf(response.status) !== -1) {
                 retryCount++;
+                this._logger.log({
+                    level: 'debug',
+                    message: `request failed with status: ${response.status}, retrying`,
+                });
                 // wait 3 seconds
                 await Promise.delay(3000);
             } else {
