@@ -1,7 +1,7 @@
 const Promise = require('bluebird');
 const axios = require("axios");
 
-const knownHeaders = ["X-Api-Key", "X-User-Dma"];
+const knownHeaders = ["X-Api-Key", "X-User-Dma", /X-DCG.*/];
 
 const ABORT_ERR = new Error('requestor aborted');
 
@@ -134,7 +134,13 @@ class Requestor {
             options.body = row.data.body;
         }
         knownHeaders.forEach((knownHeader) => {
-            if (row.data[knownHeader]) {
+            if (knownHeader.constructor === RegExp) {
+                Object.keys(row.data).forEach((k) => {
+                    if (knownHeader.test(k)) {
+                        options.headers[k] = row.data[k];
+                    }
+                })
+            } else if (row.data[knownHeader]) {
                 options.headers[knownHeader] = row.data[knownHeader];
             }
         });

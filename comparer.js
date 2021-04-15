@@ -59,16 +59,20 @@ class Diff {
             })
             return;
         }
-        if (typeof beforeVal === 'object') {
-            if (Array.isArray(beforeVal)) {
-                this._compareArray(beforeVal, afterVal, path);
-            } else {
-                this._compareObject(beforeVal, afterVal, path);
-            }
+        if ((beforeVal && !afterVal) || (!beforeVal && afterVal)) {
+            this._diffs.push({ path: path, before: beforeVal, after: afterVal });
         } else {
-            // if it is not an object, then compare with the after value
-            if (!this._compareFunc(beforeVal, afterVal, path)) {
-                this._diffs.push({ path: path, before: beforeVal, after: afterVal });
+            if (typeof beforeVal === 'object') {
+                if (Array.isArray(beforeVal)) {
+                    this._compareArray(beforeVal, afterVal, path);
+                } else {
+                    this._compareObject(beforeVal, afterVal, path);
+                }
+            } else {
+                // if it is not an object, then compare with the after value
+                if (!this._compareFunc(beforeVal, afterVal, path)) {
+                    this._diffs.push({ path: path, before: beforeVal, after: afterVal });
+                }
             }
         }
     }
@@ -82,15 +86,19 @@ class Diff {
             })
             return;
         }
-        const beforeKeys = Object.keys(before);
-        beforeKeys.forEach((k) => {
-            _self._compareKey(before, after, k, path);
-        });
-        if (!this._isSuperset && after) {
-            const afterKeys = Object.keys(after);
-            afterKeys.forEach((k) => {
+        if ((before && !after) || (this._isSuperset && !before && after)) {
+            this._diffs.push({ path: path, before: before, after: after });
+        } else if (before && after) {
+            const beforeKeys = Object.keys(before);
+            beforeKeys.forEach((k) => {
                 _self._compareKey(before, after, k, path);
             });
+            if (!this._isSuperset && after) {
+                const afterKeys = Object.keys(after);
+                afterKeys.forEach((k) => {
+                    _self._compareKey(before, after, k, path);
+                });
+            }
         }
     }
 
@@ -102,9 +110,9 @@ class Diff {
             })
             return;
         }
-        if ((before && !after) || (!before && after)) {
+        if ((before && !after) || (this._isSuperset && !before && after)) {
             this._diffs.push({ path: path, before: before, after: after });
-        } else {
+        } else if (before && after) {
             const beforeVal = before[k];
             const afterVal = after[k];
             const nextPath = path === "" ? k : `${path}.${k}`;
@@ -120,7 +128,7 @@ class Diff {
             })
             return;
         }
-        if ((before && !after) || (!before && after)) {
+        if ((before && !after) || (!this._isSuperset && !before && after)) {
             this._diffs.push({ path: path, before: before, after: after });
         } else if (before.length !== after.length) {
             this._diffs.push({ path: `${path}.length`, before: before, after: after });
