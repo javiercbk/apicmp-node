@@ -1,8 +1,13 @@
+const _ = require('lodash')
 const Promise = require('bluebird');
 const axios = require("axios");
 
+const { fileExists } = require('./file-utils');
+
 const knownHeaders = ["X-Api-Key", "X-User-Dma", /X-DCG.*/];
 
+const REQ_FILE_NOT_EXISTS = new Error('requestTransform function file does not exist');
+const REQ_FILE_PARSE_ERR = new Error('unable to parse requestTransform function file');
 const ABORT_ERR = new Error('requestor aborted');
 
 const ABORT_MSG = 'aborted by user';
@@ -21,6 +26,7 @@ class Requestor {
         this._httpClient = axios;
         this._cancelTokenSource = axios.CancelToken.source();
         this._aborted = false;
+        this._requestTransform = options.requestTransform
     }
 
     async request(rows) {
@@ -54,14 +60,16 @@ class Requestor {
     async _requestAndCompareRow(row) {
         const path = row.data.path;
         const options = this._optionsFromRow(row)
-        const responses = await Promise.map([this._before, this._after], (host) => {
-            // get method is the default
-            const opt = Object.assign({ method: 'GET', cancelToken: this._cancelTokenSource.token }, options);
-            opt.url = host + path;
-            return this._makeRequest(opt).then((response) => {
+        const beforeRequest = this._buildRequest(this._before, path, options);
+        const afterRequest = this._buildRequest(this._after, path, options);
+        if (this._requestTransform) {
+            this._requestTransform(beforeRequest, afterRequest);
+        }
+        const responses = await Promise.map([beforeRequest, afterRequest], (reqOpts) => {
+            return this._makeRequest(reqOpts).then((response) => {
                 return {
                     response,
-                    options: opt,
+                    options: reqOpts,
                 };
             });
         });
@@ -70,6 +78,13 @@ class Requestor {
             return;
         }
         this._onResponse(row, responses[0], responses[1]);
+    }
+
+    _buildRequest(host, path, options) {
+        // get method is the default
+        const req = Object.assign({ method: 'GET', cancelToken: this._cancelTokenSource.token }, _.cloneDeep(options));
+        req.url = host + path;
+        return req;
     }
 
     async _makeRequest(opt) {
@@ -180,11 +195,23 @@ class Requestor {
         }
         return chunks;
     }
+}
 
-
+const readReqPlugin = async function (path) {
+    const exists = await fileExists(path);
+    if (!exists) {
+        throw REQ_FILE_NOT_EXISTS;
+    }
+    // WARNING:this can easily be exploited
+    const reqPlugin = require(path);
+    if (reqPlugin.requestTransform && typeof reqPlugin.requestTransform !== "function") {
+        throw REQ_FILE_PARSE_ERR;
+    }
+    return reqPlugin;
 }
 
 module.exports = {
     Requestor,
     ABORT_ERR,
+    readReqPlugin,
 }

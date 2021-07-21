@@ -2,7 +2,7 @@
 const winston = require("winston");
 
 const { readCSV } = require('./csv');
-const { Requestor, ABORT_ERR } = require('./requestor');
+const { Requestor, ABORT_ERR, readReqPlugin } = require('./requestor');
 const { Stats } = require('./stats');
 const { Comparer, Diff, readPlugin } = require('./comparer');
 
@@ -37,14 +37,19 @@ const options = program.opts();
   const onResponse = function (row, before, after) {
     comparer.compare(row, before, after);
   };
-  let error = true;
+  let requestorOptions = {};
+  if (options.reqPlugin) {
+    const plugin = await readReqPlugin(options.reqPlugin);
+    requestorOptions.requestTransform = plugin.requestTransform;
+  }
+  let error = false;
   try {
     // when no headers are passed, always pass "Cache-Control: no-cache"
     if (!options.headers) {
       options.headers = ["Cache-Control: no-cache"]
     }
     const rows = await readCSV(options.file, options.rows)
-    const requestorOptions = Object.assign({}, options, { logger: logger, onResponse: onResponse });
+    Object.assign(requestorOptions, options, { logger: logger, onResponse: onResponse });
     const requestor = new Requestor(requestorOptions);
     process.on('SIGINT', function () {
       logger.log({
