@@ -113,25 +113,39 @@ class Requestor {
     }
 
     _curlCommand(opt) {
-        let curlCommand = `curl --location --request ${opt.method} ${opt.url} \\\n`;
+        let curlCommand = `curl --location --request ${opt.method} "${opt.url}" \\\n`;
         Object.keys(opt.headers).forEach((k) => {
-            curlCommand += `--header '${k}: ${opt.headers[k]}' \\\n`
+            curlCommand += `--header "${k}: ${opt.headers[k]}" \\\n`
         })
+        if (opt.body) {
+            curlCommand += `--data '${opt.body}' \\\n`
+        }
         // FIXME: Add query params
         // FIXME: Add body
         return curlCommand;
     }
 
     _optionsFromRow(row) {
+        const customHeaders = {};
+        if (this._headers) {
+            this._headers.forEach((strHeader) => {
+                const splitted = strHeader.split(':');
+                if (splitted && splitted.length === 2) {
+                    customHeaders[splitted[0].trim()] = splitted[1].trim();
+                }
+            });
+        }
         const options = {
             method: 'GET',
-            headers: {},
+            headers: customHeaders,
         }
         if (row.data.method) {
             options.method = row.data.method;
         }
         if (row.data.body) {
             options.body = row.data.body;
+            // if body is pressent, assume it is a json
+            options.headers['Content-Type'] = "application/json";
         }
         knownHeaders.forEach((knownHeader) => {
             if (knownHeader.constructor === RegExp) {

@@ -17,7 +17,7 @@ const filterRowsWithInvalidMethod = (row) => {
         // GET method will be assumed
         return true;
     }
-    const methodUpper = row.Method.toUpperCase();
+    const methodUpper = row.method.toUpperCase();
     return methodUpper === 'GET' ||
         methodUpper === 'POST' ||
         methodUpper === 'PUT' ||

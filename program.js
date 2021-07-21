@@ -29,7 +29,7 @@ program
     .requiredOption("-B, --before <before>", "https://api.example.com")
     .requiredOption("-A, --after <after>", "https://qa-api.example.com")
     .requiredOption("-F, --file <file>", "~/Downloads/fixtures.csv")
-    .option("-H, --header <headers...>", "'Cache-Control: no-cache' ")
+    .option("-H, --header <headers...>", "'Cache-Control: no-cache'", ["Cache-Control: no-cache"])
     .option("-R, --rows <rows>", "1,7,12 (Rerun failed or specific tests from file)", parseNumberArray)
     .option("--retry <retryStatusCodes...>", "424,500 (HTTP status codes)", parseNumberArray)
     .option("--match <matchType>", "exact|superset (default is exact)", "exact")

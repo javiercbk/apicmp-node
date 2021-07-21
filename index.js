@@ -39,6 +39,10 @@ const options = program.opts();
   };
   let error = true;
   try {
+    // when no headers are passed, always pass "Cache-Control: no-cache"
+    if (!options.headers) {
+      options.headers = ["Cache-Control: no-cache"]
+    }
     const rows = await readCSV(options.file, options.rows)
     const requestorOptions = Object.assign({}, options, { logger: logger, onResponse: onResponse });
     const requestor = new Requestor(requestorOptions);
